@@ -318,6 +318,17 @@ export default function SosButton() {
 
   return (
     <div className={styles.wrap}>
+      {!enabled && (
+        <div className={styles.explainer}>
+          <p className={styles.explainerTitle}>What happens when you press SOS</p>
+          <ul className={styles.explainerList}>
+            <li>📍 Your live location is shared with nearby responders</li>
+            <li>🎙️ A voice note is recorded and transcribed for them</li>
+            <li>🚑 Doctors, interns, ambulances &amp; riders are alerted at once</li>
+            <li>🤝 Whoever accepts coordinates the rest — you see every arrival</li>
+          </ul>
+        </div>
+      )}
       <button
         type="button"
         className={`${styles.sos} ${enabled ? styles.active : ''}`}
