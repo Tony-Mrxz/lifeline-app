@@ -73,6 +73,11 @@ export default function AuthScreen() {
     }
 
     setBusy(true);
+    // ask while the click gesture is still alive; browsers drop permission
+    // requests made later from async callbacks
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
     try {
       await authReady;
       if (mode === 'register') {

@@ -126,6 +126,25 @@ export default function AlertInbox() {
     lastSeenIdRef.current = id;
   }, [current]);
 
+  const notifiedIdRef = useRef(null);
+
+  useEffect(() => {
+    const id = current?.id;
+    if (!id || id === notifiedIdRef.current) return;
+    notifiedIdRef.current = id;
+    // the sheet itself is the alert when the tab is in front
+    if (document.hasFocus() || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const n = new Notification('Incoming SOS — Life Line', {
+      body: `${current.senderEmail ?? 'unknown'} (${current.senderRole}) · ${current.durationSeconds ?? '?'}s audio`,
+      icon: '/logo.png',
+      tag: `sos-${id}`,
+    });
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+  }, [current]);
+
   if (!me || !role || !RESPONDER_ROLES.includes(role)) return null;
 
   if (!current) return null;
