@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Life Life',
+  title: 'Life Line',
   description: 'Emergency SOS',
 };
 
