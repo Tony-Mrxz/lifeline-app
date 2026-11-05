@@ -11,6 +11,14 @@
   color: #16a34a;
 }
 
+.mapWrap {
+  width: min(320px, calc(100vw - 48px));
+  height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #d4d4d8;
+}
+
 .error {
   font-size: 13px;
   font-weight: 500;

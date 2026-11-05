@@ -13,8 +13,10 @@
   "license": "ISC",
   "dependencies": {
     "firebase": "^11.1.0",
+    "leaflet": "^1.9.4",
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-leaflet": "^5.0.0"
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   addDoc,
   collection,
@@ -11,6 +12,9 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import styles from './SosButton.module.css';
+
+// leaflet touches window at import time — keep it out of the server render
+const SosMapView = dynamic(() => import('../SosMapView'), { ssr: false });
 
 const ALL_TARGET_ROLES = ['doctor', 'medical intern', 'ambulance driver', 'ride accompany'];
 
@@ -329,6 +333,11 @@ export default function SosButton() {
         <p className={styles.status}>
           GPS locked: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
         </p>
+      )}
+      {enabled && location && (
+        <div className={styles.mapWrap}>
+          <SosMapView lat={location.lat} lng={location.lng} />
+        </div>
       )}
       {enabled && error && <p className={styles.error}>GPS: {error}</p>}
       {enabled && micError && <p className={styles.error}>Mic: {micError}</p>}

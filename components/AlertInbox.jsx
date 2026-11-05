@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   arrayUnion,
@@ -15,6 +16,9 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import styles from './AlertInbox.module.css';
+
+// leaflet touches window at import time — keep it out of the server render
+const SosMapView = dynamic(() => import('../SosMapView'), { ssr: false });
 
 const RESPONDER_ROLES = ['doctor', 'medical intern', 'ambulance driver', 'ride accompany'];
 const ALERT_TTL_MS = 5 * 60 * 1000; // alerts auto-expire from popups after 5 min
@@ -177,9 +181,14 @@ export default function AlertInbox() {
       </p>
 
       {current.lat != null && current.lng != null && (
-        <p className={styles.coords}>
-          {current.lat.toFixed(5)}, {current.lng.toFixed(5)}
-        </p>
+        <>
+          <div className={styles.mapWrap}>
+            <SosMapView lat={current.lat} lng={current.lng} />
+          </div>
+          <p className={styles.coords}>
+            {current.lat.toFixed(5)}, {current.lng.toFixed(5)}
+          </p>
+        </>
       )}
 
       {myLaneTaken ? (
