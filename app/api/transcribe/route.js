@@ -5,6 +5,31 @@ const GEMINI_MODELS = [
 ];
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+const TRIAGE_PROMPT = `Listen to this audio and return ONLY a valid JSON object — no markdown, no code fences, no explanation.
+
+The JSON must have exactly these keys:
+{
+  "transcript": "<verbatim spoken words, or empty string if no intelligible speech>",
+  "severity": "<one of: critical | moderate | stable>",
+  "reason": "<one sentence explaining your severity assessment based on what was heard>"
+}
+
+Severity guide:
+- critical: life-threatening — unconscious, not breathing, severe bleeding, chest pain, stroke signs
+- moderate: urgent but stable — conscious, in pain, minor bleeding, possible fracture
+- stable: alert, responsive, minor injury or unclear situation`;
+
+/** Extract and parse JSON from a raw Gemini text response (strips markdown fences if present). */
+function parseTriageJson(raw) {
+  const cleaned = raw.replace(/```(?:json)?/gi, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Model may have produced plain text instead of JSON — treat it as transcript only
+    return { transcript: raw.trim(), severity: null, reason: null };
+  }
+}
+
 async function callGemini(key, model, audio, mimeType) {
   const startedAt = Date.now();
   console.log(`[transcribe] → ${model} (audio ${(audio.length / 1024).toFixed(0)}KB)`);
@@ -19,13 +44,11 @@ async function callGemini(key, model, audio, mimeType) {
         {
           parts: [
             { inlineData: { mimeType, data: audio } },
-            {
-              text: 'Transcribe this audio verbatim. Output only the spoken words as plain text, no commentary, no thinking blocks. If there is no intelligible speech, output an empty string.',
-            },
+            { text: TRIAGE_PROMPT },
           ],
         },
       ],
-      generationConfig: { temperature: 0, maxOutputTokens: 4096 },
+      generationConfig: { temperature: 0, maxOutputTokens: 512, responseMimeType: 'application/json' },
     }),
   });
 
@@ -38,14 +61,16 @@ async function callGemini(key, model, audio, mimeType) {
   }
 
   const data = await res.json();
-  const transcript = (data.candidates?.[0]?.content?.parts ?? [])
+  const raw = (data.candidates?.[0]?.content?.parts ?? [])
     .map((part) => part.text ?? '')
     .join('')
     .trim();
+
+  const parsed = parseTriageJson(raw);
   console.log(
-    `[transcribe] ✓ ${model} in ${Date.now() - startedAt}ms — "${transcript.slice(0, 80)}"`
+    `[transcribe] ✓ ${model} in ${Date.now() - startedAt}ms — severity: ${parsed.severity ?? 'n/a'} — "${(parsed.transcript ?? '').slice(0, 80)}"`
   );
-  return transcript;
+  return parsed;
 }
 
 export async function POST(request) {
@@ -78,10 +103,10 @@ export async function POST(request) {
 
   for (const model of GEMINI_MODELS) {
     try {
-      const transcript = await callGemini(key, model, audio, mimeType);
-      if (transcript) {
+      const result = await callGemini(key, model, audio, mimeType);
+      if (result.transcript || result.severity) {
         console.log(`[transcribe] done in ${Date.now() - totalStartedAt}ms via ${model}`);
-        return Response.json({ transcript, model });
+        return Response.json({ ...result, model });
       }
       anySucceeded = true;
       errors.push(`${model} returned empty`);
@@ -93,7 +118,7 @@ export async function POST(request) {
   console.log(`[transcribe] giving up after ${Date.now() - totalStartedAt}ms`);
 
   if (anySucceeded) {
-    return Response.json({ transcript: '', note: 'no speech detected' });
+    return Response.json({ transcript: '', severity: null, reason: null, note: 'no speech detected' });
   }
 
   return Response.json(

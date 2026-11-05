@@ -189,6 +189,22 @@ export default function AlertInbox() {
         </span>
       </div>
 
+      {/* Severity triage pill — shown as soon as Gemini patches the alert */}
+      {current.severity ? (
+        <div className={`${styles.severityRow} ${styles[`severity_${current.severity}`]}`}>
+          <span className={styles.severityPill}>
+            {current.severity === 'critical' && '🔴 CRITICAL'}
+            {current.severity === 'moderate' && '🟠 MODERATE'}
+            {current.severity === 'stable'   && '🟢 STABLE'}
+          </span>
+          {current.severityReason && (
+            <span className={styles.severityReason}>{current.severityReason}</span>
+          )}
+        </div>
+      ) : current.transcriptionStatus === 'pending' ? (
+        <div className={styles.severityPending}>⏳ AI triage in progress…</div>
+      ) : null}
+
       <audio controls src={current.audioBase64} className={styles.audio} />
 
       <p className={styles.transcript}>

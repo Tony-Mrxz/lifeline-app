@@ -161,9 +161,11 @@ export default function SosButton() {
         const json = await res.json();
         console.log(`[sos] transcription responded in ${Date.now() - t0}ms (status ${res.status})`);
         if (res.ok) {
-          setTranscript(json.transcript);
+          setTranscript(json.transcript ?? '');
           await updateDoc(alertRef, {
-            transcript: json.transcript,
+            transcript: json.transcript ?? '',
+            severity: json.severity ?? null,
+            severityReason: json.reason ?? null,
             transcriptionStatus: 'done',
           });
         } else {
