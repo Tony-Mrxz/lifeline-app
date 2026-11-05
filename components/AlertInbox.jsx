@@ -16,20 +16,21 @@ import {
 import { auth, db } from '../lib/firebase';
 import styles from './AlertInbox.module.css';
 
-const RESPONDER_ROLES = ['doctor', 'medical intern', 'ambulance driver'];
+const RESPONDER_ROLES = ['doctor', 'medical intern', 'ambulance driver', 'ride accompany'];
 const ALERT_TTL_MS = 5 * 60 * 1000; // alerts auto-expire from popups after 5 min
 
-// two independent lanes: medical (doctors + interns) and ambulance
+// three independent lanes: medical (doctors + interns), ambulance, rider
 function laneField(responderRole) {
-  return responderRole === 'ambulance driver'
-    ? 'ambulanceAcceptedBy'
-    : 'medicalAcceptedBy';
+  if (responderRole === 'ambulance driver') return 'ambulanceAcceptedBy';
+  if (responderRole === 'ride accompany') return 'riderAcceptedBy';
+  return 'medicalAcceptedBy';
 }
 
 const LANE_LABEL = {
   doctor: 'Doctor',
   'medical intern': 'Medical intern',
   'ambulance driver': 'Ambulance',
+  'ride accompany': 'Rider',
 };
 
 function timeAgo(iso) {
@@ -127,6 +128,7 @@ export default function AlertInbox() {
 
   const myLaneTaken = current[lane]?.uid === me.uid;
   const isAmbulance = role === 'ambulance driver';
+  const isRider = role === 'ride accompany';
   const medicalLead = current.medicalAcceptedBy ?? null;
   const ambulanceLead = current.ambulanceAcceptedBy ?? null;
 
@@ -195,33 +197,32 @@ export default function AlertInbox() {
         </div>
       )}
 
-      {isAmbulance && medicalLead ? (
+      {(!isAmbulance && ambulanceLead) || (isRider && medicalLead) ? (
         <div className={styles.leadRow}>
           <span className={styles.leadLabel}>
-            Case in-charge: {medicalLead.name} ({medicalLead.role})
+            {isAmbulance
+              ? `Ambulance assigned: ${ambulanceLead.name}`
+              : `Case in-charge: ${medicalLead.name} (${medicalLead.role})`}
           </span>
-          {medicalLead.phone && (
-            <a className={styles.contactBtn} href={`tel:${medicalLead.phone}`}>
-              Contact
-            </a>
-          )}
-        </div>
-      ) : !isAmbulance && ambulanceLead ? (
-        <div className={styles.leadRow}>
-          <span className={styles.leadLabel}>
-            Ambulance assigned: {ambulanceLead.name}
-          </span>
-          {ambulanceLead.phone && (
-            <a className={styles.contactBtn} href={`tel:${ambulanceLead.phone}`}>
-              Contact
-            </a>
-          )}
+          {isAmbulance
+            ? ambulanceLead.phone && (
+                <a className={styles.contactBtn} href={`tel:${ambulanceLead.phone}`}>
+                  Contact
+                </a>
+              )
+            : medicalLead.phone && (
+                <a className={styles.contactBtn} href={`tel:${medicalLead.phone}`}>
+                  Contact
+                </a>
+              )}
         </div>
       ) : (
         <p className={styles.leadPending}>
           {isAmbulance
             ? 'Waiting for a doctor/intern to take case in-charge…'
-            : 'Waiting for an ambulance to be assigned…'}
+            : isRider
+              ? 'Waiting for the case in-charge…'
+              : 'Waiting for an ambulance to be assigned…'}
         </p>
       )}
     </div>

@@ -13,13 +13,13 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
-const RESPONDER_ROLES = ['doctor', 'medical intern', 'ambulance driver'];
+const RESPONDER_ROLES = ['doctor', 'medical intern', 'ambulance driver', 'ride accompany'];
 const ALERT_TTL_MS = 5 * 60 * 1000;
 
 function laneField(responderRole) {
-  return responderRole === 'ambulance driver'
-    ? 'ambulanceAcceptedBy'
-    : 'medicalAcceptedBy';
+  if (responderRole === 'ambulance driver') return 'ambulanceAcceptedBy';
+  if (responderRole === 'ride accompany') return 'riderAcceptedBy';
+  return 'medicalAcceptedBy';
 }
 
 export default function ResponderBackground() {

@@ -12,12 +12,19 @@ import {
 import { auth, db } from '../lib/firebase';
 import styles from './SosButton.module.css';
 
-const ALL_TARGET_ROLES = ['doctor', 'medical intern', 'ambulance driver'];
+const ALL_TARGET_ROLES = ['doctor', 'medical intern', 'ambulance driver', 'ride accompany'];
 
 const ROLE_PLURAL = {
   doctor: 'doctors',
   'medical intern': 'medical interns',
   'ambulance driver': 'ambulances',
+  'ride accompany': 'riders',
+};
+
+const LANE_LABEL = {
+  medicalAcceptedBy: 'medical help',
+  ambulanceAcceptedBy: 'ambulance',
+  riderAcceptedBy: 'rider',
 };
 
 function formatTime(totalSeconds) {
@@ -57,6 +64,7 @@ export default function SosButton() {
   const [sentToRoles, setSentToRoles] = useState([]);
   const [medicalHelp, setMedicalHelp] = useState(null);
   const [ambulanceHelp, setAmbulanceHelp] = useState(null);
+  const [riderHelp, setRiderHelp] = useState(null);
 
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -122,6 +130,7 @@ export default function SosButton() {
       setSentToRoles(targetRoles);
       setMedicalHelp(null);
       setAmbulanceHelp(null);
+      setRiderHelp(null);
       console.log(`[sos] alert live for responders in ${Date.now() - t0}ms`);
 
       setTranscript('');
@@ -269,6 +278,7 @@ export default function SosButton() {
         const d = snap.data();
         setMedicalHelp(d.medicalAcceptedBy ?? null);
         setAmbulanceHelp(d.ambulanceAcceptedBy ?? null);
+        setRiderHelp(d.riderAcceptedBy ?? null);
       }
     });
     return () => unsub();
@@ -287,6 +297,7 @@ export default function SosButton() {
       setSentToRoles([]);
       setMedicalHelp(null);
       setAmbulanceHelp(null);
+      setRiderHelp(null);
       requestGps();
       startCapture();
     } else {
@@ -356,7 +367,7 @@ export default function SosButton() {
         <p className={styles.transcript}>"{transcript}"</p>
       )}
 
-      {enabled && (medicalHelp || ambulanceHelp) && (
+      {enabled && (medicalHelp || ambulanceHelp || riderHelp) && (
         <div className={styles.acceptedCard}>
           <p className={styles.acceptedTitle}>Help is on the way</p>
           {medicalHelp && (
@@ -369,13 +380,25 @@ export default function SosButton() {
               Ambulance: {ambulanceHelp.name} — dispatched
             </p>
           )}
-          {!(medicalHelp && ambulanceHelp) && (
-            <p className={styles.acceptedPending}>
-              {medicalHelp
-                ? 'Waiting for an ambulance to accept…'
-                : 'Waiting for medical help to accept…'}
+          {riderHelp && (
+            <p className={styles.acceptedWho}>
+              Rider: {riderHelp.name} — on the way to pick you up
             </p>
           )}
+          {(() => {
+            const waitingFor = [
+              !medicalHelp && 'medicalAcceptedBy',
+              !ambulanceHelp && 'ambulanceAcceptedBy',
+              !riderHelp && 'riderAcceptedBy',
+            ]
+              .filter(Boolean)
+              .map((lane) => LANE_LABEL[lane]);
+            return waitingFor.length ? (
+              <p className={styles.acceptedPending}>
+                Waiting for {waitingFor.join(', ')}…
+              </p>
+            ) : null;
+          })()}
         </div>
       )}
     </div>
