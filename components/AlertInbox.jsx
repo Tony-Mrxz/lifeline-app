@@ -18,7 +18,7 @@ import { auth, db } from '../lib/firebase';
 import styles from './AlertInbox.module.css';
 
 // leaflet touches window at import time — keep it out of the server render
-const SosMapView = dynamic(() => import('../SosMapView'), { ssr: false });
+const SosMapView = dynamic(() => import('./SosMapView'), { ssr: false });
 
 const RESPONDER_ROLES = ['doctor', 'medical intern', 'ambulance driver', 'ride accompany'];
 const ALERT_TTL_MS = 5 * 60 * 1000; // alerts auto-expire from popups after 5 min

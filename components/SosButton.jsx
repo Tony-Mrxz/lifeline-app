@@ -14,7 +14,7 @@ import { auth, db } from '../lib/firebase';
 import styles from './SosButton.module.css';
 
 // leaflet touches window at import time — keep it out of the server render
-const SosMapView = dynamic(() => import('../SosMapView'), { ssr: false });
+const SosMapView = dynamic(() => import('./SosMapView'), { ssr: false });
 
 const ALL_TARGET_ROLES = ['doctor', 'medical intern', 'ambulance driver', 'ride accompany'];
 
