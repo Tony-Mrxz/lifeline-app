@@ -33,8 +33,13 @@ export default function AlertInbox() {
       setMe({ uid: user.uid, email: user.email });
       try {
         const snap = await getDoc(doc(db, 'users', user.uid));
-        setRole(snap.exists() ? snap.data().role : null);
-      } catch {
+        const resolved = snap.exists() ? snap.data().role : null;
+        console.log(
+          `[alert] logged in as ${user.email}, role: ${resolved ?? 'NONE (users doc missing)'}`
+        );
+        setRole(resolved);
+      } catch (err) {
+        console.log('[alert] role lookup failed:', err.message);
         setRole(null);
       }
     });
@@ -48,11 +53,13 @@ export default function AlertInbox() {
       orderBy('createdAt', 'desc'),
       limit(25)
     );
-    const unsub = onSnapshot(q, (snap) => {
-      setAlerts(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      );
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setAlerts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+      (err) => console.log('[alert] snapshot error:', err.message)
+    );
     return () => unsub();
   }, [role]);
 
