@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -41,6 +42,7 @@ function friendlyAuthError(code) {
 }
 
 export default function AuthScreen() {
+  const router = useRouter();
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -76,7 +78,7 @@ export default function AuthScreen() {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-      window.location.href = '/dashboard';
+      router.push('/dashboard');
     } catch (err) {
       setError(friendlyAuthError(err.code));
       setBusy(false);
