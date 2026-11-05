@@ -12,7 +12,13 @@ import {
 import { auth, db } from '../lib/firebase';
 import styles from './SosButton.module.css';
 
-const TARGET_ROLES = ['doctor', 'medical intern', 'ambulance driver'];
+const ALL_TARGET_ROLES = ['doctor', 'medical intern', 'ambulance driver'];
+
+const ROLE_PLURAL = {
+  doctor: 'doctors',
+  'medical intern': 'medical interns',
+  'ambulance driver': 'ambulances',
+};
 
 function formatTime(totalSeconds) {
   const m = Math.floor(totalSeconds / 60);
@@ -48,6 +54,7 @@ export default function SosButton() {
   const [transcript, setTranscript] = useState('');
   const [transcriptionError, setTranscriptionError] = useState(null);
   const [alertId, setAlertId] = useState(null);
+  const [sentToRoles, setSentToRoles] = useState([]);
   const [medicalHelp, setMedicalHelp] = useState(null);
   const [ambulanceHelp, setAmbulanceHelp] = useState(null);
 
@@ -93,11 +100,14 @@ export default function SosButton() {
         senderEmail = senderEmail ?? user.email ?? null;
       }
 
+      // responders = everyone except the triggerer's own role
+      const targetRoles = ALL_TARGET_ROLES.filter((r) => r !== senderRole);
+
       alertRef = await addDoc(collection(db, 'sos_alerts'), {
         senderUid: user?.uid ?? null,
         senderEmail,
         senderRole,
-        targetRoles: TARGET_ROLES,
+        targetRoles,
         lat: locationRef.current?.lat ?? null,
         lng: locationRef.current?.lng ?? null,
         transcript: null,
@@ -109,6 +119,7 @@ export default function SosButton() {
       });
       alertIdRef.current = alertRef.id;
       setAlertId(alertRef.id);
+      setSentToRoles(targetRoles);
       setMedicalHelp(null);
       setAmbulanceHelp(null);
       console.log(`[sos] alert live for responders in ${Date.now() - t0}ms`);
@@ -252,6 +263,7 @@ export default function SosButton() {
       alertIdRef.current = null;
       cancelRequestedRef.current = false;
       setAlertId(null);
+      setSentToRoles([]);
       setMedicalHelp(null);
       setAmbulanceHelp(null);
       requestGps();
@@ -308,7 +320,9 @@ export default function SosButton() {
         </div>
       )}
       {enabled && !recording && sent && (
-        <p className={styles.sentMsg}>Sent to doctors, interns & ambulances ✓</p>
+        <p className={styles.sentMsg}>
+          Sent to {sentToRoles.map((r) => ROLE_PLURAL[r] ?? r + 's').join(', ')} ✓
+        </p>
       )}
       {enabled && !recording && sendError && (
         <p className={styles.error}>Send failed: {sendError}</p>

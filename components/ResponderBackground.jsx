@@ -2,38 +2,81 @@
 
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+} from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
 const RESPONDER_ROLES = ['doctor', 'medical intern', 'ambulance driver'];
+const ALERT_TTL_MS = 5 * 60 * 1000;
+
+function laneField(responderRole) {
+  return responderRole === 'ambulance driver'
+    ? 'ambulanceAcceptedBy'
+    : 'medicalAcceptedBy';
+}
 
 export default function ResponderBackground() {
-  const [isResponder, setIsResponder] = useState(false);
+  const [activeCount, setActiveCount] = useState(0);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setIsResponder(false);
-        return;
-      }
+    let unsubAlerts = null;
+
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      unsubAlerts?.();
+      unsubAlerts = null;
+      setActiveCount(0);
+      if (!user) return;
+
+      let role = null;
       try {
         const snap = await getDoc(doc(db, 'users', user.uid));
-        setIsResponder(
-          snap.exists() && RESPONDER_ROLES.includes(snap.data().role)
-        );
+        role = snap.exists() ? snap.data().role : null;
       } catch {
-        setIsResponder(false);
+        role = null;
       }
+      if (!role || !RESPONDER_ROLES.includes(role)) return;
+
+      const lane = laneField(role);
+      const q = query(
+        collection(db, 'sos_alerts'),
+        orderBy('createdAt', 'desc'),
+        limit(25)
+      );
+      // mirror AlertInbox visibility: red only while a popup can appear
+      unsubAlerts = onSnapshot(q, (snap) => {
+        const count = snap.docs.filter((d) => {
+          const a = d.data();
+          return (
+            (a.targetRoles ?? []).includes(role) &&
+            !(a.declinedBy ?? []).includes(user.uid) &&
+            (a.status === 'open' || a.status === 'accepted') &&
+            (a[lane] == null || a[lane].uid === user.uid) &&
+            Date.now() - new Date(a.createdAt).getTime() < ALERT_TTL_MS
+          );
+        }).length;
+        setActiveCount(count);
+      });
     });
-    return () => unsub();
+
+    return () => {
+      unsubAuth();
+      unsubAlerts?.();
+    };
   }, []);
 
   useEffect(() => {
-    document.body.style.background = isResponder ? '#dc2626' : '';
+    document.body.style.background = activeCount > 0 ? '#dc2626' : '';
     return () => {
       document.body.style.background = '';
     };
-  }, [isResponder]);
+  }, [activeCount]);
 
   return null;
 }
