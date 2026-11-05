@@ -18,6 +18,15 @@ import styles from './AlertInbox.module.css';
 
 const RESPONDER_ROLES = ['doctor', 'medical intern', 'ambulance driver'];
 
+function timeAgo(iso) {
+  if (!iso) return '';
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.floor(minutes / 60)}h ago`;
+}
+
 export default function AlertInbox() {
   const [me, setMe] = useState(null);
   const [role, setRole] = useState(null);
@@ -118,6 +127,7 @@ export default function AlertInbox() {
     <div className={styles.sheet}>
       <div className={styles.header}>
         <span className={styles.badge}>INCOMING SOS</span>
+        <span className={styles.age}>{timeAgo(current.createdAt)}</span>
         <span className={styles.from}>
           {current.senderEmail ?? 'unknown'} · {current.senderRole}
         </span>

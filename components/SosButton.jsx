@@ -104,7 +104,11 @@ export default function SosButton() {
       setSending(false);
 
       if (cancelRequestedRef.current) {
-        await updateDoc(alertRef, { transcriptionStatus: 'skipped' });
+        await updateDoc(alertRef, {
+          transcriptionStatus: 'skipped',
+          status: 'cancelled',
+          cancelledAt: new Date().toISOString(),
+        });
         return;
       }
 
