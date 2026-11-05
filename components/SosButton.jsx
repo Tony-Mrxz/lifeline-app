@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  updateDoc,
+} from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import styles from './SosButton.module.css';
 
@@ -40,6 +47,8 @@ export default function SosButton() {
   const [sendError, setSendError] = useState(null);
   const [transcript, setTranscript] = useState('');
   const [transcriptionError, setTranscriptionError] = useState(null);
+  const [alertId, setAlertId] = useState(null);
+  const [acceptedBy, setAcceptedBy] = useState(null);
 
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -96,6 +105,8 @@ export default function SosButton() {
         createdAt: new Date().toISOString(),
       });
       alertIdRef.current = alertRef.id;
+      setAlertId(alertRef.id);
+      setAcceptedBy(null);
       console.log(`[sos] alert live for responders in ${Date.now() - t0}ms`);
 
       setTranscript('');
@@ -215,6 +226,14 @@ export default function SosButton() {
     setRecording(false);
   };
 
+  useEffect(() => {
+    if (!enabled || !alertId) return;
+    const unsub = onSnapshot(doc(db, 'sos_alerts', alertId), (snap) => {
+      if (snap.exists()) setAcceptedBy(snap.data().acceptedBy ?? null);
+    });
+    return () => unsub();
+  }, [enabled, alertId]);
+
   const handleClick = () => {
     const next = !enabled;
     setEnabled(next);
@@ -224,6 +243,8 @@ export default function SosButton() {
       setError(null);
       alertIdRef.current = null;
       cancelRequestedRef.current = false;
+      setAlertId(null);
+      setAcceptedBy(null);
       requestGps();
       startCapture();
     } else {
@@ -289,6 +310,15 @@ export default function SosButton() {
 
       {enabled && sent && transcript && (
         <p className={styles.transcript}>"{transcript}"</p>
+      )}
+
+      {enabled && acceptedBy && (
+        <div className={styles.acceptedCard}>
+          <p className={styles.acceptedTitle}>Help is on the way</p>
+          <p className={styles.acceptedWho}>
+            {acceptedBy.name} · {acceptedBy.role}
+          </p>
+        </div>
       )}
     </div>
   );

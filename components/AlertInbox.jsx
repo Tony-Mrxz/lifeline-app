@@ -17,6 +17,7 @@ import { auth, db } from '../lib/firebase';
 import styles from './AlertInbox.module.css';
 
 const RESPONDER_ROLES = ['doctor', 'medical intern', 'ambulance driver'];
+const ALERT_TTL_MS = 5 * 60 * 1000; // alerts auto-expire from popups after 5 min
 
 function timeAgo(iso) {
   if (!iso) return '';
@@ -78,7 +79,8 @@ export default function AlertInbox() {
           (a) =>
             (a.targetRoles ?? []).includes(role) &&
             !(a.declinedBy ?? []).includes(me.uid) &&
-            (a.status === 'open' || a.status === 'accepted')
+            (a.status === 'open' || a.status === 'accepted') &&
+            Date.now() - new Date(a.createdAt).getTime() < ALERT_TTL_MS
         )
       : [];
   const current = visible[0] ?? null;
@@ -111,7 +113,7 @@ export default function AlertInbox() {
     console.log(`[alert] accepted SOS from ${current.senderEmail}`);
     await updateDoc(doc(db, 'sos_alerts', current.id), {
       status: 'accepted',
-      acceptedBy: { uid: me.uid, name: me.email },
+      acceptedBy: { uid: me.uid, name: me.email, role },
       acceptedAt: new Date().toISOString(),
     });
   };
