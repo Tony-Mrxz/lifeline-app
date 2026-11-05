@@ -210,16 +210,39 @@ export default function SosButton() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
+      // Pick the best mimeType the current browser supports.
+      // audio/mp4 (AAC) works on Safari/iOS; audio/webm;codecs=opus on Chrome/Firefox.
+      const PREFERRED_TYPES = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+      ];
+      const chosenMimeType =
+        PREFERRED_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
+
       chunksRef.current = [];
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-        audioBitsPerSecond: 24000,
-      });
+      const recorderOptions = chosenMimeType
+        ? { mimeType: chosenMimeType, audioBitsPerSecond: 24000 }
+        : { audioBitsPerSecond: 24000 };
+      const recorder = new MediaRecorder(stream, recorderOptions);
+
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunksRef.current.push(event.data);
       };
       recorder.onstop = () => {
-        sendAlert(new Blob(chunksRef.current, { type: 'audio/webm' }));
+        // FIX: stop mic tracks HERE, after the recorder has fully flushed all
+        // chunks into ondataavailable — stopping them earlier truncates the blob.
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+        // Use recorder.mimeType (the actual negotiated type) for the blob so the
+        // data URI stored in Firestore has the correct Content-Type header and
+        // plays back in every browser including Safari/iOS.
+        const blobType = recorder.mimeType || chosenMimeType || 'audio/webm';
+        sendAlert(new Blob(chunksRef.current, { type: blobType }));
       };
       recorder.start(1000);
       recorderRef.current = recorder;
@@ -231,13 +254,11 @@ export default function SosButton() {
 
   const stopRecording = () => {
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-      recorderRef.current.stop();
+      recorderRef.current.stop(); // onstop handler takes care of stream tracks
       recorderRef.current = null;
     }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
+    // Note: streamRef tracks are stopped inside recorder.onstop to avoid a
+    // race condition that would truncate/corrupt the final audio chunk.
     setRecording(false);
   };
 
