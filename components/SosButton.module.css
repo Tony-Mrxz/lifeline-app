@@ -3,6 +3,7 @@
   flex-direction: column;
   align-items: center;
   gap: 16px;
+  width: 100%;
 }
 
 .status {
@@ -20,7 +21,11 @@
 }
 
 .explainer {
-  width: min(360px, calc(100vw - 48px));
+  position: fixed;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(280px, calc(50vw - 100px));
   background: #ffffff;
   border: 1px solid #e4e4e7;
   border-left: 4px solid #dc2626;
@@ -29,6 +34,16 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+
+@media (max-width: 600px) {
+  .explainer {
+    position: static;
+    transform: none;
+    width: min(360px, calc(100vw - 48px));
+    box-shadow: none;
+  }
 }
 
 .row {

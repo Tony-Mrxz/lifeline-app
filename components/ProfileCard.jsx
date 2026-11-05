@@ -74,7 +74,17 @@ export default function ProfileCard() {
 
   return (
     <div className={styles.card}>
-      <h1 className={styles.heading}>Profile</h1>
+      <div className={styles.cardHeader}>
+        <button
+          type="button"
+          className={styles.backBtn}
+          onClick={() => router.back()}
+          aria-label="Go back"
+        >
+          ← Back
+        </button>
+        <h1 className={styles.heading}>Profile</h1>
+      </div>
 
       <div className={styles.staticRow}>
         <span className={styles.label}>Role</span>

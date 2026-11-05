@@ -10,6 +10,30 @@
   gap: 14px;
 }
 
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.backBtn {
+  flex-shrink: 0;
+  border: 1px solid #e4e4e7;
+  background: #f4f4f5;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3f3f46;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.backBtn:hover {
+  background: #e4e4e7;
+  color: #18181b;
+}
+
 .heading {
   font-size: 18px;
   font-weight: 800;
