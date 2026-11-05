@@ -48,7 +48,8 @@ export default function SosButton() {
   const [transcript, setTranscript] = useState('');
   const [transcriptionError, setTranscriptionError] = useState(null);
   const [alertId, setAlertId] = useState(null);
-  const [acceptedBy, setAcceptedBy] = useState(null);
+  const [medicalHelp, setMedicalHelp] = useState(null);
+  const [ambulanceHelp, setAmbulanceHelp] = useState(null);
 
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -88,6 +89,8 @@ export default function SosButton() {
           senderRole = snap.data().role ?? 'unknown';
           senderEmail = snap.data().email ?? null;
         }
+        // pre-Firebase accounts have no users doc — never show "unknown"
+        senderEmail = senderEmail ?? user.email ?? null;
       }
 
       alertRef = await addDoc(collection(db, 'sos_alerts'), {
@@ -106,7 +109,8 @@ export default function SosButton() {
       });
       alertIdRef.current = alertRef.id;
       setAlertId(alertRef.id);
-      setAcceptedBy(null);
+      setMedicalHelp(null);
+      setAmbulanceHelp(null);
       console.log(`[sos] alert live for responders in ${Date.now() - t0}ms`);
 
       setTranscript('');
@@ -229,7 +233,11 @@ export default function SosButton() {
   useEffect(() => {
     if (!enabled || !alertId) return;
     const unsub = onSnapshot(doc(db, 'sos_alerts', alertId), (snap) => {
-      if (snap.exists()) setAcceptedBy(snap.data().acceptedBy ?? null);
+      if (snap.exists()) {
+        const d = snap.data();
+        setMedicalHelp(d.medicalAcceptedBy ?? null);
+        setAmbulanceHelp(d.ambulanceAcceptedBy ?? null);
+      }
     });
     return () => unsub();
   }, [enabled, alertId]);
@@ -244,7 +252,8 @@ export default function SosButton() {
       alertIdRef.current = null;
       cancelRequestedRef.current = false;
       setAlertId(null);
-      setAcceptedBy(null);
+      setMedicalHelp(null);
+      setAmbulanceHelp(null);
       requestGps();
       startCapture();
     } else {
@@ -312,12 +321,26 @@ export default function SosButton() {
         <p className={styles.transcript}>"{transcript}"</p>
       )}
 
-      {enabled && acceptedBy && (
+      {enabled && (medicalHelp || ambulanceHelp) && (
         <div className={styles.acceptedCard}>
           <p className={styles.acceptedTitle}>Help is on the way</p>
-          <p className={styles.acceptedWho}>
-            {acceptedBy.name} · {acceptedBy.role}
-          </p>
+          {medicalHelp && (
+            <p className={styles.acceptedWho}>
+              Medical: {medicalHelp.name} ({medicalHelp.role}) — case in-charge
+            </p>
+          )}
+          {ambulanceHelp && (
+            <p className={styles.acceptedWho}>
+              Ambulance: {ambulanceHelp.name} — dispatched
+            </p>
+          )}
+          {!(medicalHelp && ambulanceHelp) && (
+            <p className={styles.acceptedPending}>
+              {medicalHelp
+                ? 'Waiting for an ambulance to accept…'
+                : 'Waiting for medical help to accept…'}
+            </p>
+          )}
         </div>
       )}
     </div>

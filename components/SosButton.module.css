@@ -119,6 +119,12 @@
   color: #15803d;
 }
 
+.acceptedPending {
+  font-size: 12px;
+  font-style: italic;
+  color: #4d7c5a;
+}
+
 .sos {
   position: relative;
   width: 148px;

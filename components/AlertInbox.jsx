@@ -19,6 +19,19 @@ import styles from './AlertInbox.module.css';
 const RESPONDER_ROLES = ['doctor', 'medical intern', 'ambulance driver'];
 const ALERT_TTL_MS = 5 * 60 * 1000; // alerts auto-expire from popups after 5 min
 
+// two independent lanes: medical (doctors + interns) and ambulance
+function laneField(responderRole) {
+  return responderRole === 'ambulance driver'
+    ? 'ambulanceAcceptedBy'
+    : 'medicalAcceptedBy';
+}
+
+const LANE_LABEL = {
+  doctor: 'Doctor',
+  'medical intern': 'Medical intern',
+  'ambulance driver': 'Ambulance',
+};
+
 function timeAgo(iso) {
   if (!iso) return '';
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
@@ -31,6 +44,7 @@ function timeAgo(iso) {
 export default function AlertInbox() {
   const [me, setMe] = useState(null);
   const [role, setRole] = useState(null);
+  const [phone, setPhone] = useState(null);
   const [alerts, setAlerts] = useState([]);
 
   useEffect(() => {
@@ -38,16 +52,18 @@ export default function AlertInbox() {
       if (!user) {
         setMe(null);
         setRole(null);
+        setPhone(null);
         return;
       }
       setMe({ uid: user.uid, email: user.email });
       try {
         const snap = await getDoc(doc(db, 'users', user.uid));
-        const resolved = snap.exists() ? snap.data().role : null;
+        const data = snap.exists() ? snap.data() : {};
         console.log(
-          `[alert] logged in as ${user.email}, role: ${resolved ?? 'NONE (users doc missing)'}`
+          `[alert] logged in as ${user.email}, role: ${data.role ?? 'NONE (users doc missing)'}`
         );
-        setRole(resolved);
+        setRole(data.role ?? null);
+        setPhone(data.phone ?? null);
       } catch (err) {
         console.log('[alert] role lookup failed:', err.message);
         setRole(null);
@@ -73,6 +89,8 @@ export default function AlertInbox() {
     return () => unsub();
   }, [role]);
 
+  const lane = role ? laneField(role) : null;
+
   const visible =
     me && role && RESPONDER_ROLES.includes(role)
       ? alerts.filter(
@@ -80,10 +98,13 @@ export default function AlertInbox() {
             (a.targetRoles ?? []).includes(role) &&
             !(a.declinedBy ?? []).includes(me.uid) &&
             (a.status === 'open' || a.status === 'accepted') &&
+            // my own lane must not already be taken by someone else
+            (a[lane] == null || a[lane].uid === me.uid) &&
             Date.now() - new Date(a.createdAt).getTime() < ALERT_TTL_MS
         )
       : [];
-  const current = visible[0] ?? null;
+  // query is newest-first; work the OLDEST actionable alert first
+  const current = visible.length ? visible[visible.length - 1] : null;
 
   const lastSeenIdRef = useRef(null);
 
@@ -104,17 +125,22 @@ export default function AlertInbox() {
 
   if (!current) return null;
 
-  const acceptedByMe =
-    current.status === 'accepted' && current.acceptedBy?.uid === me.uid;
-  const acceptedByOther =
-    current.status === 'accepted' && current.acceptedBy?.uid !== me.uid;
+  const myLaneTaken = current[lane]?.uid === me.uid;
+  const isAmbulance = role === 'ambulance driver';
+  const medicalLead = current.medicalAcceptedBy ?? null;
+  const ambulanceLead = current.ambulanceAcceptedBy ?? null;
 
   const accept = async () => {
-    console.log(`[alert] accepted SOS from ${current.senderEmail}`);
+    console.log(`[alert] accepted SOS from ${current.senderEmail} as ${lane}`);
     await updateDoc(doc(db, 'sos_alerts', current.id), {
       status: 'accepted',
-      acceptedBy: { uid: me.uid, name: me.email, role },
-      acceptedAt: new Date().toISOString(),
+      [lane]: {
+        uid: me.uid,
+        name: me.email,
+        role,
+        phone,
+        acceptedAt: new Date().toISOString(),
+      },
     });
   };
 
@@ -129,6 +155,9 @@ export default function AlertInbox() {
     <div className={styles.sheet}>
       <div className={styles.header}>
         <span className={styles.badge}>INCOMING SOS</span>
+        {visible.length > 1 && (
+          <span className={styles.count}>{visible.length} active</span>
+        )}
         <span className={styles.age}>{timeAgo(current.createdAt)}</span>
         <span className={styles.from}>
           {current.senderEmail ?? 'unknown'} · {current.senderRole}
@@ -151,21 +180,49 @@ export default function AlertInbox() {
         </p>
       )}
 
-      {acceptedByOther ? (
-        <p className={styles.handled}>
-          Handled by {current.acceptedBy?.name ?? 'responder'}
+      {myLaneTaken ? (
+        <p className={styles.handledMe}>
+          You accepted this alert as {LANE_LABEL[role]}
         </p>
-      ) : acceptedByMe ? (
-        <p className={styles.handledMe}>You accepted this alert</p>
       ) : (
         <div className={styles.actions}>
           <button type="button" className={styles.acceptBtn} onClick={accept}>
-            Accept
+            Accept as {LANE_LABEL[role]}
           </button>
           <button type="button" className={styles.declineBtn} onClick={decline}>
             Decline
           </button>
         </div>
+      )}
+
+      {isAmbulance && medicalLead ? (
+        <div className={styles.leadRow}>
+          <span className={styles.leadLabel}>
+            Case in-charge: {medicalLead.name} ({medicalLead.role})
+          </span>
+          {medicalLead.phone && (
+            <a className={styles.contactBtn} href={`tel:${medicalLead.phone}`}>
+              Contact
+            </a>
+          )}
+        </div>
+      ) : !isAmbulance && ambulanceLead ? (
+        <div className={styles.leadRow}>
+          <span className={styles.leadLabel}>
+            Ambulance assigned: {ambulanceLead.name}
+          </span>
+          {ambulanceLead.phone && (
+            <a className={styles.contactBtn} href={`tel:${ambulanceLead.phone}`}>
+              Contact
+            </a>
+          )}
+        </div>
+      ) : (
+        <p className={styles.leadPending}>
+          {isAmbulance
+            ? 'Waiting for a doctor/intern to take case in-charge…'
+            : 'Waiting for an ambulance to be assigned…'}
+        </p>
       )}
     </div>
   );

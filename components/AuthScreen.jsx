@@ -46,6 +46,7 @@ export default function AuthScreen() {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [role, setRole] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -60,9 +61,15 @@ export default function AuthScreen() {
     if (busy) return;
     setError(null);
 
-    if (mode === 'register' && !role) {
-      setError('select a role to register');
-      return;
+    if (mode === 'register') {
+      if (!role) {
+        setError('select a role to register');
+        return;
+      }
+      if (phone.replace(/\D/g, '').length < 10) {
+        setError('enter a valid phone number');
+        return;
+      }
     }
 
     setBusy(true);
@@ -73,6 +80,7 @@ export default function AuthScreen() {
         await setDoc(doc(db, 'users', cred.user.uid), {
           email,
           role,
+          phone,
           createdAt: new Date().toISOString(),
         });
       } else {
@@ -141,6 +149,18 @@ export default function AuthScreen() {
               placeholder="min 6 characters"
             />
           </label>
+
+          {mode === 'register' && (
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Phone</span>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+              />
+            </label>
+          )}
 
           {mode === 'register' && (
             <div className={styles.field}>

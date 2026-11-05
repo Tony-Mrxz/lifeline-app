@@ -24,6 +24,28 @@
   color: #18181b;
 }
 
+.right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profileBtn {
+  border: 1px solid #d4d4d8;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #18181b;
+  background: #ffffff;
+  text-decoration: none;
+}
+
+.profileBtn:hover {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
